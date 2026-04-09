@@ -9,8 +9,8 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { getDb } from './src/lib/db';
-import { calculateETA } from './src/lib/eta';
+import { getDb } from './src/lib/db.js';
+import { calculateETA } from './src/lib/eta.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 const PORT = Number(process.env.PORT) || 3000;
