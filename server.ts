@@ -205,6 +205,106 @@ async function startServer() {
     });
   });
 
+  // --- Admin User Management APIs ---
+  app.get('/api/v1/admin/users', authenticate(['admin']), async (req: any, res: any) => {
+    const { role } = req.query;
+    if (!['student', 'driver'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be student or driver.' });
+    }
+    try {
+      if (role === 'student') {
+        const users = await db.all('SELECT id, email, name FROM users WHERE role = $1', [role]);
+        res.json(users);
+      } else if (role === 'driver') {
+        const drivers = await db.all(`
+          SELECT d.driver_id AS id, u.email, d.name, d.phone, d.license_no, d.is_active
+          FROM drivers d
+          JOIN users u ON d.user_id = u.id
+          WHERE u.role = 'driver'
+        `);
+        res.json(drivers);
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/v1/admin/users', authenticate(['admin']), async (req: any, res: any) => {
+    const { email, password, role, name, phone, license_no, is_active } = req.body;
+    if (!['student', 'driver'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be student or driver.' });
+    }
+    if (role === 'driver' && !license_no) {
+      return res.status(400).json({ error: 'License number required for drivers.' });
+    }
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const userRes = await db.run('INSERT INTO users (email, password, role, name) VALUES ($1, $2, $3, $4) RETURNING id', 
+        [email, hashedPassword, role, name]);
+      if (role === 'driver') {
+        await db.run('INSERT INTO drivers (user_id, name, phone, license_no, is_active) VALUES ($1, $2, $3, $4, $5)', 
+          [userRes.lastID, name, phone, license_no, is_active !== false]);
+      }
+      res.json({ success: true, userId: userRes.lastID });
+    } catch (err) {
+      console.error('Error adding user:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.put('/api/v1/admin/users/:id', authenticate(['admin']), async (req: any, res: any) => {
+    const { id } = req.params;
+    const { email, password, role, name, phone, license_no, is_active } = req.body;
+    try {
+      if (role === 'student') {
+        let query = 'UPDATE users SET email = $1, name = $2 WHERE id = $3';
+        let params = [email, name, id];
+        if (password) {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          query = 'UPDATE users SET email = $1, password = $2, name = $3 WHERE id = $4';
+          params = [email, hashedPassword, name, id];
+        }
+        await db.run(query, params);
+      } else if (role === 'driver') {
+        // Update users table for email and name
+        let userQuery = 'UPDATE users SET email = $1, name = $2 WHERE id = (SELECT user_id FROM drivers WHERE driver_id = $3)';
+        let userParams = [email, name, id];
+        if (password) {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          userQuery = 'UPDATE users SET email = $1, password = $2, name = $3 WHERE id = (SELECT user_id FROM drivers WHERE driver_id = $4)';
+          userParams = [email, hashedPassword, name, id];
+        }
+        await db.run(userQuery, userParams);
+        // Update drivers table
+        await db.run('UPDATE drivers SET name = $1, phone = $2, license_no = $3, is_active = $4 WHERE driver_id = $5', 
+          [name, phone, license_no, is_active !== false, id]);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating user:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.delete('/api/v1/admin/users/:id', authenticate(['admin']), async (req: any, res: any) => {
+    const { id } = req.params;
+    const { role } = req.body; // Pass role in body for context
+    try {
+      if (role === 'student') {
+        await db.run('DELETE FROM users WHERE id = $1', [id]);
+      } else if (role === 'driver') {
+        const driver = await db.get('SELECT user_id FROM drivers WHERE driver_id = $1', [id]);
+        await db.run('DELETE FROM drivers WHERE driver_id = $1', [id]);
+        await db.run('DELETE FROM users WHERE id = $1', [driver.user_id]);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // --- Socket.IO Middleware ---
   io.use((socket: any, next) => {
     const token = socket.handshake.auth.token;

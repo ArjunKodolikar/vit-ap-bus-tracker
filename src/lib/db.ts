@@ -60,6 +60,8 @@ export async function getDb(): Promise<DatabaseWrapper> {
     CREATE TABLE IF NOT EXISTS drivers (
       driver_id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id),
+      name TEXT NOT NULL,
+      phone TEXT,
       license_no TEXT UNIQUE NOT NULL,
       is_active BOOLEAN DEFAULT TRUE
     );
@@ -100,7 +102,7 @@ export async function getDb(): Promise<DatabaseWrapper> {
     // Driver
     const driverUserRes = await pool.query('INSERT INTO users (email, password, role, name) VALUES ($1, $2, $3, $4) RETURNING id', 
       ['driver1@vitap.ac.in', hashedPassword, 'driver', 'John Driver']);
-    await pool.query('INSERT INTO drivers (user_id, license_no) VALUES ($1, $2)', [driverUserRes.rows[0].id, 'DL123456789']);
+    await pool.query('INSERT INTO drivers (user_id, name, phone, license_no) VALUES ($1, $2, $3, $4)', [driverUserRes.rows[0].id, 'John Driver', '9876543210', 'DL123456789']);
 
     // Student
     await pool.query('INSERT INTO users (email, password, role, name) VALUES ($1, $2, $3, $4)', 

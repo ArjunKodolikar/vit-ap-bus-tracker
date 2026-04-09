@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Map from './components/Map';
+import AdminUserManagement from './components/AdminUserManagement';
 import { useBusTracking } from './hooks/useBusTracking';
 import { calculateETA } from './lib/eta';
 
@@ -21,6 +22,9 @@ export default function App() {
   // Driver State
   const [isSharing, setIsSharing] = useState(false);
   const [assignedBus, setAssignedBus] = useState<any>(null);
+
+  // Admin State
+  const [adminView, setAdminView] = useState<'dashboard' | 'users'>('dashboard');
 
   useEffect(() => {
     const savedToken = localStorage.getItem('bus_token');
@@ -309,6 +313,27 @@ export default function App() {
                   </motion.div>
                 )}
               </div>
+            </div>
+          )}
+
+          {user?.role === 'admin' && (
+            <div className="space-y-6">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAdminView('dashboard')}
+                  className={`px-4 py-2 rounded-lg ${adminView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setAdminView('users')}
+                  className={`px-4 py-2 rounded-lg ${adminView === 'users' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                >
+                  User Management
+                </button>
+              </div>
+
+              {adminView === 'users' && <AdminUserManagement token={token} />}
             </div>
           )}
         </aside>
