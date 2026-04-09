@@ -9,11 +9,11 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { getDb } from './src/lib/db.ts';
-import { calculateETA } from './src/lib/eta.ts';
+import { getDb } from './src/lib/db';
+import { calculateETA } from './src/lib/eta';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // In-memory "Redis" for live GPS
 const liveGpsCache = new Map<string, any>();
