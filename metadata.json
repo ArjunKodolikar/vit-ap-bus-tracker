@@ -1,0 +1,5 @@
+{
+  "name": "VIT-AP Bus Tracker",
+  "description": "Real-time college bus tracking system for students, drivers, and admins with live GPS updates and ETA calculation.",
+  "requestFramePermissions": ["geolocation"]
+}
