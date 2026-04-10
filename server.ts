@@ -421,6 +421,97 @@ async function startServer() {
     }
   });
 
+  // --- Admin Stop Management APIs ---
+  app.get('/api/v1/admin/stops', authenticate(['admin']), async (req: any, res: any) => {
+    const { route_id } = req.query;
+    if (!route_id) {
+      return res.status(400).json({ error: 'route_id query parameter is required' });
+    }
+    try {
+      const stops = await db.all('SELECT * FROM stops WHERE route_id = $1 ORDER BY sequence', [route_id]);
+      res.json(stops);
+    } catch (err) {
+      console.error('Error fetching stops:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/v1/admin/stops', authenticate(['admin']), [
+    body('route_id').isInt(),
+    body('stop_name').isString().notEmpty(),
+    body('latitude').isFloat({ min: -90, max: 90 }),
+    body('longitude').isFloat({ min: -180, max: 180 }),
+    body('sequence').isInt({ min: 1 })
+  ], async (req: any, res: any) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Invalid stop data', details: errors.array() });
+    }
+
+    const { route_id, stop_name, latitude, longitude, sequence } = req.body;
+
+    try {
+      // Check for duplicate sequence in the route
+      const existing = await db.get('SELECT 1 FROM stops WHERE route_id = $1 AND sequence = $2', [route_id, sequence]);
+      if (existing) {
+        return res.status(400).json({ error: 'A stop with this sequence already exists for the route' });
+      }
+
+      await db.run(
+        'INSERT INTO stops (route_id, stop_name, latitude, longitude, sequence) VALUES ($1, $2, $3, $4, $5)',
+        [route_id, stop_name, latitude, longitude, sequence]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error adding stop:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.put('/api/v1/admin/stops/:stop_id', authenticate(['admin']), [
+    body('route_id').isInt(),
+    body('stop_name').isString().notEmpty(),
+    body('latitude').isFloat({ min: -90, max: 90 }),
+    body('longitude').isFloat({ min: -180, max: 180 }),
+    body('sequence').isInt({ min: 1 })
+  ], async (req: any, res: any) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Invalid stop data', details: errors.array() });
+    }
+
+    const { stop_id } = req.params;
+    const { route_id, stop_name, latitude, longitude, sequence } = req.body;
+
+    try {
+      // Check for duplicate sequence (excluding current stop)
+      const existing = await db.get('SELECT 1 FROM stops WHERE route_id = $1 AND sequence = $2 AND stop_id != $3', [route_id, sequence, stop_id]);
+      if (existing) {
+        return res.status(400).json({ error: 'A stop with this sequence already exists for the route' });
+      }
+
+      await db.run(
+        'UPDATE stops SET route_id = $1, stop_name = $2, latitude = $3, longitude = $4, sequence = $5 WHERE stop_id = $6',
+        [route_id, stop_name, latitude, longitude, sequence, stop_id]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating stop:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.delete('/api/v1/admin/stops/:stop_id', authenticate(['admin']), async (req: any, res: any) => {
+    const { stop_id } = req.params;
+    try {
+      await db.run('DELETE FROM stops WHERE stop_id = $1', [stop_id]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error deleting stop:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Get Active Bus Assignments (Admin)
   app.get('/api/v1/assignments/active', authenticate(['admin']), async (req, res) => {
     try {

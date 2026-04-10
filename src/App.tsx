@@ -5,6 +5,7 @@ import Map from './components/Map';
 import AdminUserManagement from './components/AdminUserManagement';
 import ActiveFleetTable from './components/ActiveFleetTable';
 import CreateAssignment from './components/CreateAssignment';
+import AdminStopManagement from './components/AdminStopManagement';
 import { useBusTracking } from './hooks/useBusTracking';
 import { calculateETA } from './lib/eta';
 
@@ -27,7 +28,7 @@ export default function App() {
   const [driverAssignment, setDriverAssignment] = useState<any>(null);
 
   // Admin State
-  const [adminView, setAdminView] = useState<'dashboard' | 'users'>('dashboard');
+  const [adminView, setAdminView] = useState<'dashboard' | 'users' | 'stops'>('dashboard');
   const [assignmentRefresh, setAssignmentRefresh] = useState(0);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
 
@@ -363,6 +364,12 @@ export default function App() {
                 >
                   User Management
                 </button>
+                <button
+                  onClick={() => setAdminView('stops')}
+                  className={`px-4 py-2 rounded-lg ${adminView === 'stops' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                >
+                  Stop Management
+                </button>
               </div>
             </div>
           )}
@@ -400,9 +407,13 @@ export default function App() {
                   />
                 )}
               </>
-            ) : (
+            ) : adminView === 'users' ? (
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full">
                 <AdminUserManagement token={token} />
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full">
+                <AdminStopManagement token={token} />
               </div>
             )
           ) : (
