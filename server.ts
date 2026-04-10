@@ -512,6 +512,37 @@ async function startServer() {
     }
   });
 
+  // PATCH endpoint for driver to update current stop sequence
+  app.patch('/api/v1/assignments/me/stop', authenticate(['driver']), async (req: any, res: any) => {
+    const { current_stop_sequence } = req.body;
+    if (typeof current_stop_sequence !== 'number' || current_stop_sequence < 0) {
+      return res.status(400).json({ error: 'Invalid current_stop_sequence' });
+    }
+
+    try {
+      const driver = await db.get('SELECT driver_id FROM drivers WHERE user_id = $1', [req.user.id]);
+      if (!driver) {
+        return res.status(404).json({ error: 'Driver not found' });
+      }
+
+      const assignment = await db.get(`
+        SELECT assignment_id FROM bus_assignments
+        WHERE driver_id = $1 AND assigned_date = CURRENT_DATE
+        AND CURRENT_TIME BETWEEN shift_start AND shift_end
+      `, [driver.driver_id]);
+
+      if (!assignment) {
+        return res.status(404).json({ error: 'No active assignment found' });
+      }
+
+      await db.run('UPDATE bus_assignments SET current_stop_sequence = $1 WHERE assignment_id = $2', [current_stop_sequence, assignment.assignment_id]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating stop sequence:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Get Active Bus Assignments (Admin)
   app.get('/api/v1/assignments/active', authenticate(['admin']), async (req, res) => {
     try {

@@ -24,6 +24,7 @@ interface MapProps {
   center: [number, number];
   busLocations: Record<number, BusLocation>;
   stops: any[];
+  onBusSelect?: (busId: number) => void;
 }
 
 function ChangeView({ center }: { center: [number, number] }) {
@@ -32,7 +33,7 @@ function ChangeView({ center }: { center: [number, number] }) {
   return null;
 }
 
-export default function Map({ center, busLocations, stops }: MapProps) {
+export default function Map({ center, busLocations, stops, onBusSelect }: MapProps) {
   return (
     <div className="h-full w-full relative">
       <MapContainer center={center} zoom={14} scrollWheelZoom={true} className="z-0">
@@ -48,6 +49,9 @@ export default function Map({ center, busLocations, stops }: MapProps) {
             key={bus.bus_id} 
             position={[bus.latitude, bus.longitude]} 
             icon={busIcon}
+            eventHandlers={{
+              click: () => onBusSelect && onBusSelect(bus.bus_id)
+            }}
           >
             <Popup>
               <div className="p-1">

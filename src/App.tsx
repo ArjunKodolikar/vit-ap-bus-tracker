@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock, PlusCircle } from 'lucide-react';
+import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock, PlusCircle, CheckCircle, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Map from './components/Map';
 import AdminUserManagement from './components/AdminUserManagement';
@@ -20,12 +20,16 @@ export default function App() {
   const [routes, setRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [stops, setStops] = useState<any[]>([]);
+  const [selectedBusId, setSelectedBusId] = useState<number | null>(null);
+  const [selectedBusStops, setSelectedBusStops] = useState<any[]>([]);
+  const [selectedBusCurrentSequence, setSelectedBusCurrentSequence] = useState<number>(0);
   const busLocations = useBusTracking(selectedRoute?.route_id || null, token);
 
   // Driver State
   const [isSharing, setIsSharing] = useState(false);
   const [assignedBus, setAssignedBus] = useState<any>(null);
   const [driverAssignment, setDriverAssignment] = useState<any>(null);
+  const [driverStops, setDriverStops] = useState<any[]>([]);
 
   // Admin State
   const [adminView, setAdminView] = useState<'dashboard' | 'users' | 'stops'>('dashboard');
@@ -80,6 +84,37 @@ export default function App() {
     }
   }, [selectedRoute, token]);
 
+  useEffect(() => {
+    if (token && user?.role === 'driver' && driverAssignment?.active) {
+      fetch(`${API_BASE}/routes/${driverAssignment.route_id}/stops`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(setDriverStops);
+    }
+  }, [token, user, driverAssignment]);
+
+  // Add effect for student selected bus
+  useEffect(() => {
+    if (selectedBusId && token) {
+      // Fetch assignment for the bus to get route_id and current_stop_sequence
+      fetch(`${API_BASE}/assignments/active`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(assignments => {
+          const assignment = assignments.find((a: any) => a.bus_id === selectedBusId);
+          if (assignment) {
+            fetch(`${API_BASE}/routes/${assignment.route_id}/stops`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(res => res.json())
+              .then(stops => {
+                setSelectedBusStops(stops);
+                setSelectedBusCurrentSequence(assignment.current_stop_sequence || 0);
+              });
+          }
+        });
+    } else {
+      setSelectedBusStops([]);
+      setSelectedBusCurrentSequence(0);
+    }
+  }, [selectedBusId, token]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
@@ -113,6 +148,20 @@ export default function App() {
     setToken(null);
     setUser(null);
     setView('login');
+  };
+
+  // Add function to handle driver stop update
+  const handleDriverStopUpdate = async (sequence: number) => {
+    try {
+      await fetch(`${API_BASE}/assignments/me/stop`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ current_stop_sequence: sequence })
+      });
+      setDriverAssignment((prev: any) => ({ ...prev, current_stop_sequence: sequence }));
+    } catch (err) {
+      alert('Failed to update stop');
+    }
   };
 
   // Driver Location Sharing Logic
@@ -314,6 +363,36 @@ export default function App() {
                 )}
               </div>
 
+              {driverAssignment?.active && driverStops.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Route Stops</h3>
+                  <div className="space-y-3">
+                    {driverStops.map(stop => {
+                      const isPassed = stop.sequence <= (driverAssignment.current_stop_sequence || 0);
+                      return (
+                        <div key={stop.stop_id} className={`flex items-center justify-between p-3 rounded-xl border ${isPassed ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                          <div className="flex items-center gap-3">
+                            {isPassed ? <CheckCircle size={20} className="text-green-600" /> : <Circle size={20} className="text-slate-400" />}
+                            <div>
+                              <p className={`text-sm font-medium ${isPassed ? 'text-green-900' : 'text-slate-900'}`}>{stop.stop_name}</p>
+                              <p className="text-xs text-slate-500">Stop #{stop.sequence}</p>
+                            </div>
+                          </div>
+                          {!isPassed && (
+                            <button
+                              onClick={() => handleDriverStopUpdate(stop.sequence)}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                            >
+                              Mark Arrived
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {driverAssignment?.active && (
                 <div className="space-y-4">
                   <label className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
@@ -417,12 +496,35 @@ export default function App() {
               </div>
             )
           ) : (
-            <div className="relative w-full h-[50vh] md:h-full md:flex-1">
+            <div className="relative w-full h-[50vh] md:h-full md:flex-1 flex">
               <Map 
                 center={selectedRoute && stops.length > 0 ? [stops[0].latitude, stops[0].longitude] : [16.5193, 80.5050]} 
                 busLocations={busLocations}
                 stops={stops}
+                onBusSelect={setSelectedBusId}
               />
+              
+              {selectedBusId && selectedBusStops.length > 0 && (
+                <div className="w-80 bg-white border-l border-slate-200 p-6 overflow-y-auto shadow-lg">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">Bus Route Stops</h3>
+                  <div className="space-y-3">
+                    {selectedBusStops.map(stop => {
+                      const isPassed = stop.sequence < selectedBusCurrentSequence;
+                      const isCurrent = stop.sequence === selectedBusCurrentSequence;
+                      return (
+                        <div key={stop.stop_id} className={`flex items-center gap-3 p-3 rounded-xl border ${isPassed ? 'bg-green-50 border-green-200' : isCurrent ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+                          {isPassed ? <CheckCircle size={20} className="text-green-600" /> : isCurrent ? <Navigation size={20} className="text-blue-600" /> : <Circle size={20} className="text-slate-400" />}
+                          <div>
+                            <p className={`text-sm font-medium ${isPassed ? 'text-green-900' : isCurrent ? 'text-blue-900' : 'text-slate-900'}`}>{stop.stop_name}</p>
+                            <p className="text-xs text-slate-500">Stop #{stop.sequence}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button onClick={() => setSelectedBusId(null)} className="mt-4 w-full bg-slate-200 text-slate-700 py-2 rounded">Close</button>
+                </div>
+              )}
               
               {!selectedRoute && user?.role === 'student' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px] z-10">

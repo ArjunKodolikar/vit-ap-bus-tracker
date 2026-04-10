@@ -73,7 +73,8 @@ export async function getDb(): Promise<DatabaseWrapper> {
       route_id INTEGER REFERENCES routes(route_id),
       assigned_date DATE NOT NULL,
       shift_start TIME NOT NULL,
-      shift_end TIME NOT NULL
+      shift_end TIME NOT NULL,
+      current_stop_sequence INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS gps_logs (
