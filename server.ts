@@ -315,6 +315,7 @@ async function startServer() {
         SELECT 
           ba.assignment_id,
           b.bus_number,
+          b.plate_number,
           b.capacity,
           d.name AS driver_name,
           d.phone,

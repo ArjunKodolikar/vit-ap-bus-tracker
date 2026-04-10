@@ -3,6 +3,7 @@ import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock } from 'luc
 import { motion, AnimatePresence } from 'motion/react';
 import Map from './components/Map';
 import AdminUserManagement from './components/AdminUserManagement';
+import ActiveFleetTable from './components/ActiveFleetTable';
 import { useBusTracking } from './hooks/useBusTracking';
 import { calculateETA } from './lib/eta';
 
@@ -332,27 +333,37 @@ export default function App() {
                   User Management
                 </button>
               </div>
-
-              {adminView === 'users' && <AdminUserManagement token={token} />}
             </div>
           )}
         </aside>
 
-        {/* Map Area */}
-        <section className="flex-1 relative bg-slate-200">
-          <Map 
-            center={selectedRoute && stops.length > 0 ? [stops[0].latitude, stops[0].longitude] : [16.5193, 80.5050]} 
-            busLocations={busLocations}
-            stops={stops}
-          />
-          
-          {!selectedRoute && user?.role === 'student' && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px] z-10">
-              <div className="bg-white p-6 rounded-2xl shadow-2xl text-center max-w-xs">
-                <MapPin size={48} className="mx-auto text-blue-600 mb-4" />
-                <h3 className="font-bold text-slate-900 mb-2">Select a Route</h3>
-                <p className="text-sm text-slate-500">Choose a route from the sidebar to see live bus locations and ETAs.</p>
+        {/* Main Content Area */}
+        <section className="flex-1 relative bg-slate-200 p-6">
+          {user?.role === 'admin' ? (
+            adminView === 'dashboard' ? (
+              <ActiveFleetTable token={token} />
+            ) : (
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full">
+                <AdminUserManagement token={token} />
               </div>
+            )
+          ) : (
+            <div className="relative h-full">
+              <Map 
+                center={selectedRoute && stops.length > 0 ? [stops[0].latitude, stops[0].longitude] : [16.5193, 80.5050]} 
+                busLocations={busLocations}
+                stops={stops}
+              />
+              
+              {!selectedRoute && user?.role === 'student' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px] z-10">
+                  <div className="bg-white p-6 rounded-2xl shadow-2xl text-center max-w-xs">
+                    <MapPin size={48} className="mx-auto text-blue-600 mb-4" />
+                    <h3 className="font-bold text-slate-900 mb-2">Select a Route</h3>
+                    <p className="text-sm text-slate-500">Choose a route from the sidebar to see live bus locations and ETAs.</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
