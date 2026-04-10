@@ -108,7 +108,7 @@ export default function AdminUserManagement({ token }: { token: string }) {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden w-full overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

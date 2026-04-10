@@ -406,7 +406,7 @@ export default function App() {
               </div>
             )
           ) : (
-            <div className="relative h-full">
+            <div className="relative w-full h-[50vh] md:h-full md:flex-1">
               <Map 
                 center={selectedRoute && stops.length > 0 ? [stops[0].latitude, stops[0].longitude] : [16.5193, 80.5050]} 
                 busLocations={busLocations}
