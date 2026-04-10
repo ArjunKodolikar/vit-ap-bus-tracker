@@ -32,6 +32,9 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Trust the first proxy (for Railway deployment)
+  app.set('trust proxy', 1);
+
   // --- CORS Configuration ---
   const FRONTEND_URL = process.env.FRONTEND_URL || '*';
   app.use(cors({
