@@ -24,6 +24,7 @@ export default function App() {
   // Driver State
   const [isSharing, setIsSharing] = useState(false);
   const [assignedBus, setAssignedBus] = useState<any>(null);
+  const [driverAssignment, setDriverAssignment] = useState<any>(null);
 
   // Admin State
   const [adminView, setAdminView] = useState<'dashboard' | 'users'>('dashboard');
@@ -47,9 +48,26 @@ export default function App() {
         .then(setRoutes);
     }
     if (token && user?.role === 'driver') {
-      // In a real app, we'd fetch the specific assignment. 
-      // For this demo, we'll assume bus_id 1.
-      setAssignedBus({ bus_id: 1, bus_number: 'BUS-001' });
+      const fetchAssignment = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/drivers/me/assignment`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          setDriverAssignment(data);
+          if (data.active) {
+            setAssignedBus({ bus_id: data.bus_id, bus_number: data.bus_number });
+          } else {
+            setAssignedBus(null);
+            setIsSharing(false); // Stop sharing if no active shift
+          }
+        } catch (err) {
+          console.error('Error fetching assignment:', err);
+        }
+      };
+      fetchAssignment();
+      const interval = setInterval(fetchAssignment, 60000); // Refetch every minute
+      return () => clearInterval(interval);
     }
   }, [token, user]);
 
@@ -99,7 +117,7 @@ export default function App() {
   // Driver Location Sharing Logic
   useEffect(() => {
     let interval: any;
-    if (isSharing && user?.role === 'driver' && assignedBus) {
+    if (isSharing && user?.role === 'driver' && assignedBus && driverAssignment?.active) {
       interval = setInterval(() => {
         navigator.geolocation.getCurrentPosition((pos) => {
           fetch(`${API_BASE}/bus/location`, {
@@ -283,40 +301,50 @@ export default function App() {
                   <Bus size={20} />
                   Your Assignment
                 </h3>
-                <p className="text-sm text-blue-700 font-medium">{assignedBus?.bus_number}</p>
-                <p className="text-xs text-blue-600 mt-1">Route: Vijayawada to VIT-AP</p>
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${isSharing ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                      <Navigation size={20} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">Share Location</p>
-                      <p className="text-xs text-slate-500">{isSharing ? 'Live Tracking ON' : 'Tracking Paused'}</p>
-                    </div>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    checked={isSharing} 
-                    onChange={(e) => setIsSharing(e.target.checked)}
-                    className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </label>
-
-                {isSharing && (
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-green-50 border border-green-100 p-4 rounded-xl flex items-center gap-3"
-                  >
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <p className="text-xs font-medium text-green-700">Broadcasting live GPS every 5s</p>
-                  </motion.div>
+                {driverAssignment?.active ? (
+                  <>
+                    <p className="text-sm text-blue-700 font-medium">{assignedBus?.bus_number}</p>
+                    <p className="text-xs text-blue-600 mt-1">Route: {driverAssignment.route_name}</p>
+                  </>
+                ) : driverAssignment?.nextShift ? (
+                  <p className="text-sm text-blue-700">Your shift starts at {driverAssignment.nextShift}.</p>
+                ) : (
+                  <p className="text-sm text-blue-700">You have no scheduled shifts for today.</p>
                 )}
               </div>
+
+              {driverAssignment?.active && (
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${isSharing ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <Navigation size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Share Location</p>
+                        <p className="text-xs text-slate-500">{isSharing ? 'Live Tracking ON' : 'Tracking Paused'}</p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={isSharing} 
+                      onChange={(e) => setIsSharing(e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </label>
+
+                  {isSharing && (
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="bg-green-50 border border-green-100 p-4 rounded-xl flex items-center gap-3"
+                    >
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <p className="text-xs font-medium text-green-700">Broadcasting live GPS every 5s</p>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

@@ -245,12 +245,18 @@ async function startServer() {
 
   // Get Buses for a Route
   app.get('/api/v1/routes/:route_id/buses', authenticate(), async (req, res) => {
-    const buses = await db.all(`
-      SELECT b.* FROM buses b
-      JOIN bus_assignments ba ON b.bus_id = ba.bus_id
-      WHERE ba.route_id = $1 AND b.is_active = TRUE
-    `, [req.params.route_id]);
-    res.json(buses);
+    try {
+      const buses = await db.all(`
+        SELECT b.* FROM buses b
+        JOIN bus_assignments ba ON b.bus_id = ba.bus_id
+        WHERE ba.route_id = $1 AND b.is_active = TRUE
+        AND ba.assigned_date = CURRENT_DATE AND CURRENT_TIME BETWEEN ba.shift_start AND ba.shift_end
+      `, [req.params.route_id]);
+      res.json(buses);
+    } catch (err) {
+      console.error('Error fetching buses for route:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   });
 
   // Get ETA for a Bus to a specific Stop (SRS 3.3 / 7.3)
@@ -280,6 +286,39 @@ async function startServer() {
       stop_id: parseInt(stop_id),
       ...etaResult
     });
+  });
+
+  app.get('/api/v1/drivers/me/assignment', authenticate(['driver']), async (req: any, res: any) => {
+    try {
+      const driver = await db.get('SELECT driver_id FROM drivers WHERE user_id = $1', [req.user.id]);
+      if (!driver) {
+        return res.status(404).json({ error: 'Driver not found' });
+      }
+
+      const assignment = await db.get(`
+        SELECT ba.*, b.bus_number, r.route_name
+        FROM bus_assignments ba
+        JOIN buses b ON ba.bus_id = b.bus_id
+        JOIN routes r ON ba.route_id = r.route_id
+        WHERE ba.driver_id = $1 AND ba.assigned_date = CURRENT_DATE
+        AND CURRENT_TIME BETWEEN ba.shift_start AND ba.shift_end
+      `, [driver.driver_id]);
+
+      if (!assignment) {
+        // Check for next shift today
+        const nextShift = await db.get(`
+          SELECT shift_start FROM bus_assignments
+          WHERE driver_id = $1 AND assigned_date = CURRENT_DATE AND shift_start > CURRENT_TIME
+          ORDER BY shift_start LIMIT 1
+        `, [driver.driver_id]);
+        return res.json({ active: false, nextShift: nextShift ? nextShift.shift_start : null });
+      }
+
+      res.json({ active: true, ...assignment });
+    } catch (err) {
+      console.error('Error fetching driver assignment:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
   });
 
   // --- Admin User Management APIs ---
