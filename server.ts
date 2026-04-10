@@ -163,6 +163,80 @@ async function startServer() {
     res.json(routes);
   });
 
+  app.get('/api/v1/drivers/active', authenticate(['admin']), async (req, res) => {
+    try {
+      const drivers = await db.all(`
+        SELECT d.driver_id AS id, u.email, d.name, d.phone, d.license_no
+        FROM drivers d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.is_active = TRUE AND u.role = 'driver'
+      `);
+      res.json(drivers);
+    } catch (err) {
+      console.error('Error fetching active drivers:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/v1/buses/active', authenticate(['admin']), async (req, res) => {
+    try {
+      const buses = await db.all('SELECT bus_id AS id, bus_number, plate_number FROM buses WHERE is_active = TRUE');
+      res.json(buses);
+    } catch (err) {
+      console.error('Error fetching active buses:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post(
+    '/api/v1/assignments',
+    authenticate(['admin']),
+    [
+      body('bus_id').isInt(),
+      body('driver_id').isInt(),
+      body('route_id').isInt(),
+      body('assigned_date').isISO8601(),
+      body('shift_start').matches(/^\d{2}:\d{2}$/),
+      body('shift_end').matches(/^\d{2}:\d{2}$/),
+    ],
+    async (req: any, res: any) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Invalid assignment payload', details: errors.array() });
+      }
+
+      const { bus_id, driver_id, route_id, assigned_date, shift_start, shift_end } = req.body;
+
+      try {
+        const existingBusAssignment = await db.get(
+          'SELECT 1 FROM bus_assignments WHERE bus_id = $1 AND assigned_date = $2',
+          [bus_id, assigned_date]
+        );
+        if (existingBusAssignment) {
+          return res.status(400).json({ error: 'This bus is already assigned for this date.' });
+        }
+
+        const existingDriverAssignment = await db.get(
+          'SELECT 1 FROM bus_assignments WHERE driver_id = $1 AND assigned_date = $2',
+          [driver_id, assigned_date]
+        );
+        if (existingDriverAssignment) {
+          return res.status(400).json({ error: 'This driver is already assigned for this date.' });
+        }
+
+        await db.run(
+          'INSERT INTO bus_assignments (bus_id, driver_id, route_id, assigned_date, shift_start, shift_end) VALUES ($1, $2, $3, $4, $5, $6)',
+          [bus_id, driver_id, route_id, assigned_date, shift_start, shift_end]
+        );
+
+        res.json({ success: true });
+      } catch (err) {
+        console.error('Error creating assignment:', err);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  );
+
   // Get Stops for a Route
   app.get('/api/v1/routes/:route_id/stops', authenticate(), async (req, res) => {
     const stops = await db.all('SELECT * FROM stops WHERE route_id = $1 ORDER BY sequence', [req.params.route_id]);
@@ -311,6 +385,7 @@ async function startServer() {
   // Get Active Bus Assignments (Admin)
   app.get('/api/v1/assignments/active', authenticate(['admin']), async (req, res) => {
     try {
+      const date = req.query.date ? req.query.date.toString() : null;
       const assignments = await db.all(`
         SELECT 
           ba.assignment_id,
@@ -328,11 +403,11 @@ async function startServer() {
         JOIN buses b ON ba.bus_id = b.bus_id
         JOIN drivers d ON ba.driver_id = d.driver_id
         JOIN routes r ON ba.route_id = r.route_id
-        WHERE ba.assigned_date = CURRENT_DATE 
+        WHERE ba.assigned_date = COALESCE($1::date, localtimestamp::date)
           AND b.is_active = TRUE 
           AND d.is_active = TRUE 
           AND r.is_active = TRUE
-      `);
+      `, [date]);
       res.json(assignments);
     } catch (err) {
       console.error('Error fetching active assignments:', err);

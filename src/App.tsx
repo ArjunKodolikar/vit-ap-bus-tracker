@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock } from 'lucide-react';
+import { LogIn, Bus, MapPin, Navigation, User, LogOut, Shield, Clock, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Map from './components/Map';
 import AdminUserManagement from './components/AdminUserManagement';
 import ActiveFleetTable from './components/ActiveFleetTable';
+import CreateAssignment from './components/CreateAssignment';
 import { useBusTracking } from './hooks/useBusTracking';
 import { calculateETA } from './lib/eta';
 
@@ -26,6 +27,8 @@ export default function App() {
 
   // Admin State
   const [adminView, setAdminView] = useState<'dashboard' | 'users'>('dashboard');
+  const [assignmentRefresh, setAssignmentRefresh] = useState(0);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('bus_token');
@@ -341,7 +344,34 @@ export default function App() {
         <section className="flex-1 relative bg-slate-200 p-6">
           {user?.role === 'admin' ? (
             adminView === 'dashboard' ? (
-              <ActiveFleetTable token={token} />
+              <>
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-xl font-semibold text-slate-900">Admin Dashboard</h1>
+                    <p className="text-sm text-slate-500">View and manage active fleet assignments.</p>
+                  </div>
+                  <button
+                    onClick={() => setIsAssignmentModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
+                  >
+                    <PlusCircle size={16} />
+                    Create Assignment
+                  </button>
+                </div>
+
+                <ActiveFleetTable token={token} refreshKey={assignmentRefresh} />
+
+                {isAssignmentModalOpen && (
+                  <CreateAssignment
+                    token={token}
+                    onClose={() => setIsAssignmentModalOpen(false)}
+                    onCreated={() => {
+                      setAssignmentRefresh((prev) => prev + 1);
+                      setIsAssignmentModalOpen(false);
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full">
                 <AdminUserManagement token={token} />

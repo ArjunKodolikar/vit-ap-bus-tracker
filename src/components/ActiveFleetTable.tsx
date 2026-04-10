@@ -16,7 +16,7 @@ export interface ActiveAssignment {
   shift_end: string;
 }
 
-export default function ActiveFleetTable({ token }: { token: string | null }) {
+export default function ActiveFleetTable({ token, refreshKey }: { token: string | null; refreshKey?: number }) {
   const [assignments, setAssignments] = useState<ActiveAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,11 +28,12 @@ export default function ActiveFleetTable({ token }: { token: string | null }) {
       return;
     }
 
+    const localDate = new Date().toISOString().slice(0, 10);
     let active = true;
     setLoading(true);
     setError(null);
 
-    fetch(`${API_BASE}/assignments/active`, {
+    fetch(`${API_BASE}/assignments/active?date=${localDate}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -58,7 +59,7 @@ export default function ActiveFleetTable({ token }: { token: string | null }) {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [token, refreshKey]);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 h-full">
