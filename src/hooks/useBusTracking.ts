@@ -11,6 +11,19 @@ export interface BusLocation {
   stale?: boolean;
 }
 
+export interface ActiveAssignment {
+  assignment_id: number;
+  bus_number: string;
+  capacity: number;
+  driver_name: string;
+  phone: string;
+  route_name: string;
+  origin: string;
+  destination: string;
+  shift_start: string;
+  shift_end: string;
+}
+
 export function useBusTracking(routeId: number | null, token: string | null) {
   const [busLocations, setBusLocations] = useState<Record<number, BusLocation>>({});
   const [socket, setSocket] = useState<Socket | null>(null);

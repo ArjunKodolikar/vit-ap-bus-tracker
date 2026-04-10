@@ -305,6 +305,37 @@ async function startServer() {
     }
   });
 
+  // Get Active Bus Assignments (Admin)
+  app.get('/api/v1/assignments/active', authenticate(['admin']), async (req, res) => {
+    try {
+      const assignments = await db.all(`
+        SELECT 
+          ba.assignment_id,
+          b.bus_number,
+          b.capacity,
+          d.name AS driver_name,
+          d.phone,
+          r.route_name,
+          r.origin,
+          r.destination,
+          ba.shift_start,
+          ba.shift_end
+        FROM bus_assignments ba
+        JOIN buses b ON ba.bus_id = b.bus_id
+        JOIN drivers d ON ba.driver_id = d.driver_id
+        JOIN routes r ON ba.route_id = r.route_id
+        WHERE ba.assigned_date = CURRENT_DATE 
+          AND b.is_active = TRUE 
+          AND d.is_active = TRUE 
+          AND r.is_active = TRUE
+      `);
+      res.json(assignments);
+    } catch (err) {
+      console.error('Error fetching active assignments:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // --- Socket.IO Middleware ---
   io.use((socket: any, next) => {
     const token = socket.handshake.auth.token;
