@@ -240,7 +240,10 @@ export default function App() {
             <p className="text-xs text-slate-400">
               Demo Credentials:<br/>
               Student: student@vitap.ac.in / password123<br/>
-              Driver: driver1@vitap.ac.in / password123
+              Driver 1: driver@vitap.ac.in / password123<br/>
+              Driver 2: driver2@vitap.ac.in / password123<br/>
+              Admin: admin@vitap.ac.in / password123
+
             </p>
           </div>
         </motion.div>

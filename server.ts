@@ -80,8 +80,9 @@ async function startServer() {
   // Auth
   app.post('/api/v1/auth/login', async (req, res) => {
     const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
     try {
-      const user = await db.get('SELECT * FROM users WHERE email = $1', [email]);
+      const user = await db.get('SELECT * FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
       if (!user || !(await bcrypt.compare(password, user.password))) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
@@ -348,8 +349,9 @@ async function startServer() {
 
   app.post('/api/v1/admin/users', authenticate(['admin']), async (req: any, res: any) => {
     const { email, password, role, name, phone, license_no, is_active } = req.body;
-    if (!['student', 'driver'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be student or driver.' });
+    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+    if (!['student', 'driver', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be student, driver or admin.' });
     }
     if (role === 'driver' && !license_no) {
       return res.status(400).json({ error: 'License number required for drivers.' });
@@ -357,7 +359,7 @@ async function startServer() {
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
       const userRes = await db.run('INSERT INTO users (email, password, role, name) VALUES ($1, $2, $3, $4) RETURNING id', 
-        [email, hashedPassword, role, name]);
+        [normalizedEmail, hashedPassword, role, name]);
       if (role === 'driver') {
         await db.run('INSERT INTO drivers (user_id, name, phone, license_no, is_active) VALUES ($1, $2, $3, $4, $5)', 
           [userRes.lastID, name, phone, license_no, is_active !== false]);
@@ -372,24 +374,25 @@ async function startServer() {
   app.put('/api/v1/admin/users/:id', authenticate(['admin']), async (req: any, res: any) => {
     const { id } = req.params;
     const { email, password, role, name, phone, license_no, is_active } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
     try {
       if (role === 'student') {
         let query = 'UPDATE users SET email = $1, name = $2 WHERE id = $3';
-        let params = [email, name, id];
+        let params = [normalizedEmail, name, id];
         if (password) {
           const hashedPassword = await bcrypt.hash(password, 10);
           query = 'UPDATE users SET email = $1, password = $2, name = $3 WHERE id = $4';
-          params = [email, hashedPassword, name, id];
+          params = [normalizedEmail, hashedPassword, name, id];
         }
         await db.run(query, params);
       } else if (role === 'driver') {
         // Update users table for email and name
         let userQuery = 'UPDATE users SET email = $1, name = $2 WHERE id = (SELECT user_id FROM drivers WHERE driver_id = $3)';
-        let userParams = [email, name, id];
+        let userParams = [normalizedEmail, name, id];
         if (password) {
           const hashedPassword = await bcrypt.hash(password, 10);
           userQuery = 'UPDATE users SET email = $1, password = $2, name = $3 WHERE id = (SELECT user_id FROM drivers WHERE driver_id = $4)';
-          userParams = [email, hashedPassword, name, id];
+          userParams = [normalizedEmail, hashedPassword, name, id];
         }
         await db.run(userQuery, userParams);
         // Update drivers table
