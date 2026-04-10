@@ -280,7 +280,7 @@ export default function App() {
 
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Sidebar / Controls */}
-        <aside className="w-full md:w-80 bg-white border-r border-slate-200 p-6 overflow-y-auto z-40 shadow-sm">
+        <aside className="w-full md:w-80 bg-white border-r border-slate-200 p-6 overflow-y-auto z-40 shadow-sm h-full">
           {user?.role === 'student' && (
             <div className="space-y-6">
               <div>
@@ -429,23 +429,35 @@ export default function App() {
           )}
 
           {user?.role === 'admin' && (
-            <div className="space-y-6">
-              <div className="flex gap-2">
+            <div className="flex flex-col space-y-6 h-full">
+              <div className="flex flex-col space-y-2">
                 <button
                   onClick={() => setAdminView('dashboard')}
-                  className={`px-4 py-2 rounded-lg ${adminView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                  className={`w-full text-left px-4 py-3 cursor-pointer transition-colors rounded-lg ${
+                    adminView === 'dashboard'
+                      ? 'bg-blue-600 text-white font-semibold'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
                   Dashboard
                 </button>
                 <button
                   onClick={() => setAdminView('users')}
-                  className={`px-4 py-2 rounded-lg ${adminView === 'users' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                  className={`w-full text-left px-4 py-3 cursor-pointer transition-colors rounded-lg ${
+                    adminView === 'users'
+                      ? 'bg-blue-600 text-white font-semibold'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
                   User Management
                 </button>
                 <button
                   onClick={() => setAdminView('stops')}
-                  className={`px-4 py-2 rounded-lg ${adminView === 'stops' ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}
+                  className={`w-full text-left px-4 py-3 cursor-pointer transition-colors rounded-lg ${
+                    adminView === 'stops'
+                      ? 'bg-blue-600 text-white font-semibold'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
                   Stop Management
                 </button>
